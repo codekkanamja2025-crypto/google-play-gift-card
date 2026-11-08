@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Play 기프트 카드 생성기</title>
+    <!-- Google Fonts: Roboto & Noto Sans KR -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans KR"', 'Roboto', 'sans-serif'],
+                    },
+                    colors: {
+                        google: {
+                            blue: '#1a73e8',
+                            green: '#0f9d58',
+                            red: '#ea4335',
+                            yellow: '#fbbc04',
+                            gray: '#5f6368',
+                            bg: '#f8f9fa'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .g-card-shadow {
+            box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 2px 6px 2px rgba(60,64,67,0.15);
+        }
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .animate-pulse-subtle {
+            animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-[#f8f9fa] text-[#202124] min-h-screen flex flex-col justify-between font-sans antialiased selection:bg-blue-100 relative">
+
+    <!-- PASSWORD GATE OVERLAY -->
+    <div id="password-gate-modal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-md flex items-center justify-center p-4 z-[100]">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-5 g-card-shadow border border-gray-100 text-center animate-in zoom-in-95 duration-200">
+            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl mx-auto flex items-center justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 002-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-gray-900">보안 인증 필요</h2>
+                <p class="text-xs text-gray-500 mt-1">접속 비밀번호를 입력하세요.</p>
+            </div>
+            
+            <form onsubmit="funVerifyPassword(event)" class="space-y-3">
+                <input type="password" id="gate-password-input" placeholder="비밀번호 입력" class="w-full text-center tracking-widest text-lg font-mono bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                <p id="password-error-msg" class="text-xs text-red-500 hidden font-medium">비밀번호가 올바르지 않습니다.</p>
+                <button type="submit" class="w-full bg-google-blue hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow transition-all duration-200">
+                    인증하고 계속하기
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Header Navigation Bar -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer">
+                <!-- Google Play Logo SVG -->
+                <svg class="w-8 h-8" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M99.5 24.3C90.2 14.8 77.2 9.5 63 9.5 35.8 9.5 13.8 31.5 13.8 58.7v394.6c0 27.2 22 49.2 49.2 49.2 14.2 0 27.2-5.3 36.5-14.8l208.7-231.7L99.5 24.3z" fill="#00E676"/>
+                    <path d="M99.5 24.3l208.7 231.7 82.2-91.3L153.2 10.6C135.8 1 116.3 5.4 99.5 24.3z" fill="#00D657"/>
+                    <path d="M498.2 216.7L390.4 164.7l-82.2 91.3 82.2 91.3 107.8-52c15.8-7.6 25.8-23.7 25.8-41.3 0-17.6-10-33.7-25.8-41.3z" fill="#FFD500"/>
+                    <path d="M99.5 487.7c16.8 18.9 36.3 23.3 53.7 13.7l237.2-154.1-82.2-91.3L99.5 487.7z" fill="#FF3D00"/>
+                </svg>
+                <span class="text-xl font-medium text-gray-700 tracking-tight flex items-center gap-1.5">
+                    Google Play
+                </span>
+            </div>
+            
+            <!-- Account Section -->
+            <div class="flex items-center space-x-3">
+                <button type="button" onclick="funOpenAccountSelectorModal()" class="flex items-center space-x-2 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-full px-3 py-1.5 transition-all text-xs font-medium text-gray-700">
+                    <div id="user-avatar-badge" class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-xs">
+                        G
+                    </div>
+                    <span id="current-user-email-header" class="max-w-[130px] sm:max-w-none truncate">user@gmail.com</span>
+                    <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-xl w-full mx-auto px-4 py-8 flex-grow flex flex-col justify-center">
+
+        <!-- Card Container -->
+        <div class="bg-white rounded-2xl p-6 sm:p-8 g-card-shadow border border-gray-100 transition-all duration-300">
+
+            <!-- Title & Description -->
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl mb-4 shadow-inner">
+                    <svg class="w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Google Play 기프트 카드 코드 생성기</h1>
+                <p class="text-sm text-gray-500 mt-2">국가 및 발급 금액을 선택한 후 실시간 지원 코드를 생성하세요.</p>
+            </div>
+
+            <!-- Selection Section -->
+            <div id="selection-section" class="space-y-5">
+                <!-- Country Selection Dropdown -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">국가 / 지역 선택</label>
+                    <div class="relative">
+                        <select id="country-select" onchange="funUpdateCountryCurrency(this.value)" class="w-full bg-gray-50 border border-gray-300 text-gray-800 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3 pr-8 font-medium appearance-none cursor-pointer focus:outline-none">
+                            <option value="KR" selected>대한민국 (KRW ₩)</option>
+                            <option value="US">미국 (USD $)</option>
+                            <option value="JP">일본 (JPY ¥)</option>
+                            <option value="EU">유럽 (EUR €)</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Amount Selection Grid -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">발급 금액 선택</label>
+                    <div id="amount-grid" class="grid grid-cols-2 gap-3">
+                        <!-- Rendered via JS based on selected country -->
+                    </div>
+                </div>
+
+                <!-- Info Notice -->
+                <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start space-x-3 text-xs text-blue-800">
+                    <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>구글 데이터베이스 암호화 서버와 직접 연동되어 즉시 사용 가능한 16자리 리딤 코드가 발급됩니다.</span>
+                </div>
+
+                <!-- Action Button -->
+                <button type="button" onclick="funStartGenerationProcess()" class="w-full bg-google-blue hover:bg-blue-700 text-white font-medium py-3.5 px-6 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <span class="text-base font-semibold">코드 생성하기</span>
+                </button>
+            </div>
+
+            <!-- Progress / Loading Section (Hidden Initially) -->
+            <div id="loading-section" class="hidden py-6 space-y-6">
+                <div class="text-center space-y-2">
+                    <div id="status-text" class="text-sm font-semibold text-gray-700 animate-pulse-subtle">
+                        구글 인증 서버 접속 중...
+                    </div>
+                    <p class="text-xs text-gray-400">잠시만 기다려 주세요. 보안 토큰을 동기화하고 있습니다.</p>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full bg-gray-100 rounded-full h-3 overflow-hidden p-0.5 border border-gray-200">
+                    <div id="progress-bar" class="bg-google-blue h-full rounded-full transition-all duration-300 w-0"></div>
+                </div>
+
+                <!-- Terminal Step Logs -->
+                <div class="bg-gray-900 text-emerald-400 font-mono text-xs p-4 rounded-xl space-y-1.5 h-32 overflow-y-auto" id="console-logs">
+                    <div>[SYSTEM] 프로세스 시작됨...</div>
+                </div>
+            </div>
+
+            <!-- Result Section (Hidden Initially) -->
+            <div id="result-section" class="hidden py-4 space-y-6">
+                <div class="text-center">
+                    <div class="inline-flex items-center justify-center w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full mb-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-bold text-gray-900">코드 생성 완료!</h2>
+                    <p class="text-xs text-gray-500 mt-1">발급된 16자리 구글 플레이 포인트를 즉시 등록해 보세요.</p>
+                </div>
+
+                <!-- Code Display Box -->
+                <div class="bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl p-5 text-center relative group">
+                    <div class="text-xs text-gray-400 mb-1 font-medium">발급 항목: <span id="result-amount" class="text-gray-700 font-bold">10,000원</span></div>
+                    <div id="generated-code" class="text-xl sm:text-2xl font-mono font-bold tracking-wider text-gray-800 my-2 select-all">
+                        XXXX-XXXX-XXXX-XXXX
+                    </div>
+                    <span class="inline-block bg-amber-100 text-amber-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                        유효기간: 24시간 이내
+                    </span>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="space-y-2.5">
+                    <button type="button" onclick="funOpenRedeemModal()" class="w-full bg-google-blue hover:bg-blue-700 text-white font-medium py-3.5 px-6 rounded-xl transition-all duration-200 shadow-md flex items-center justify-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        <span class="text-base font-bold">내 계정에 바로 등록하기</span>
+                    </button>
+                    <button type="button" onclick="funCopyGeneratedCode()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 shadow flex items-center justify-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                        </svg>
+                        <span class="text-sm font-semibold">코드 복사하기</span>
+                    </button>
+                    <button type="button" onclick="funResetGenerator()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium py-2 px-4 rounded-xl text-xs transition-all duration-200">
+                        다른 금액으로 다시 생성하기
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modal 0: Account Switch Modal -->
+    <div id="account-switch-modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 g-card-shadow border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
+            <div class="text-center">
+                <svg class="w-8 h-8 mx-auto mb-2" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <h3 class="text-lg font-bold text-gray-900">Google 계정 선택</h3>
+                <p class="text-xs text-gray-500 mt-0.5">Google Play 기프트 카드를 등록할 계정을 선택하세요</p>
+            </div>
+
+            <!-- Simulated Account List -->
+            <div class="space-y-2 py-1 max-h-56 overflow-y-auto" id="account-list-container">
+                <!-- Preset Account 1 -->
+                <button type="button" onclick="funSelectPresetAccount('사용자 계정', 'user@gmail.com')" class="w-full flex items-center space-x-3 p-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all text-left group">
+                    <div class="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
+                        U
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <div class="text-xs font-bold text-gray-800 truncate">사용자 계정</div>
+                        <div class="text-[11px] text-gray-500 truncate">user@gmail.com</div>
+                    </div>
+                    <span class="text-xs text-blue-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">선택</span>
+                </button>
+
+                <!-- Preset Account 2 -->
+                <button type="button" onclick="funSelectPresetAccount('Google 서비스 계정', 'google.user2026@gmail.com')" class="w-full flex items-center space-x-3 p-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all text-left group">
+                    <div class="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm">
+                        G
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <div class="text-xs font-bold text-gray-800 truncate">Google 서비스 계정</div>
+                        <div class="text-[11px] text-gray-500 truncate">google.user2026@gmail.com</div>
+                    </div>
+                    <span class="text-xs text-blue-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">선택</span>
+                </button>
+            </div>
+
+            <!-- Custom Input Divider -->
+            <div class="relative my-2">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div>
+                <div class="relative flex justify-center text-[10px] uppercase"><span class="bg-white px-2 text-gray-400 font-medium">또는 직접 이메일 입력</span></div>
+            </div>
+
+            <!-- Custom Account Input -->
+            <div class="space-y-2">
+                <input type="email" id="custom-account-email" placeholder="예: myaccount@gmail.com" class="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-2.5 text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <div class="flex space-x-2">
+                    <button type="button" onclick="funCloseAccountSelectorModal()" class="w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-xl text-xs">
+                        취소
+                    </button>
+                    <button type="button" onclick="funSaveCustomAccount()" class="w-1/2 bg-google-blue hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-sm">
+                        계정 적용하기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 1: Confirmation Prompt Modal -->
+    <div id="redeem-confirm-modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 g-card-shadow animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex items-center space-x-3">
+                <div id="modal-user-avatar" class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold flex-shrink-0 text-sm">
+                    G
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-gray-900">기프트 카드 등록 확인</h3>
+                    <p class="text-xs text-gray-500">Google Play 연결된 계정</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 p-3.5 rounded-xl text-xs text-gray-600 space-y-1.5 border border-gray-100">
+                <div class="flex justify-between">
+                    <span class="text-gray-400">등록 계정:</span>
+                    <span id="modal-user-email-display" class="font-medium text-gray-800">user@gmail.com</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">충전 대상 금액:</span>
+                    <span id="modal-amount-display" class="font-bold text-blue-600">10,000원</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">리딤 코드:</span>
+                    <span id="modal-code-display" class="font-mono font-medium text-gray-800">XXXX-XXXX-XXXX-XXXX</span>
+                </div>
+            </div>
+
+            <p class="text-sm font-medium text-center text-gray-800 pt-1">이 코드를 계정에 바로 등록할까요?</p>
+
+            <div class="flex space-x-2 pt-2">
+                <button type="button" onclick="funCloseRedeemModal()" class="w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-xl text-sm transition-all duration-200">
+                    아니오
+                </button>
+                <button type="button" onclick="funConfirmRedeemProcess()" class="w-1/2 bg-google-blue hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition-all duration-200">
+                    네
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Official Error Modal (Triggered after '네') -->
+    <div id="redeem-error-modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 g-card-shadow border border-red-100">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-gray-900">등록 실패</h3>
+                    <p class="text-xs text-red-500 font-mono">오류 코드: ERR_INVALID_CODE</p>
+                </div>
+            </div>
+
+            <div class="bg-red-50/70 border border-red-100 p-4 rounded-xl text-xs text-red-800 space-y-1">
+                <p class="font-bold">존재하지 않거나 유효하지 않은 코드입니다.</p>
+                <p class="text-red-600 leading-relaxed">입력하신 기프트 카드 코드가 데이터베이스 데이터와 일치하지 않거나 이미 사용된 코드입니다. 확인 후 다시 시도해 주세요.</p>
+            </div>
+
+            <div class="pt-2">
+                <button type="button" onclick="funCloseErrorModal()" class="w-full bg-gray-900 hover:bg-black text-white font-semibold py-3 rounded-xl text-sm transition-all duration-200">
+                    확인
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 py-6 text-center text-xs text-gray-500">
+        <div class="max-w-6xl mx-auto px-4 space-y-2">
+            <div class="flex justify-center space-x-6">
+                <a href="#" onclick="return false;" class="hover:underline">개인정보처리방침</a>
+                <a href="#" onclick="return false;" class="hover:underline">서비스 약관</a>
+                <a href="#" onclick="return false;" class="hover:underline">구글 플레이 고객센터</a>
+            </div>
+            <p>© 2026 Google LLC. All rights reserved. Google Play 및 Google Play 로고는 Google LLC의 상표입니다.</p>
+        </div>
+    </footer>
+
+    <!-- Toast Notification -->
+    <div id="toast-message" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs sm:text-sm font-medium px-5 py-3 rounded-xl shadow-2xl transition-all duration-300 opacity-0 pointer-events-none z-50 flex items-center space-x-2">
+        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span id="toast-text">코드가 클립보드에 복사되었습니다!</span>
+    </div>
+
+    <!-- Prank Application Script Section -->
+    <script>
+        /* 
+        ===================================================================
+        [장난용 코드 / PRANK SCRIPT NOTICE]
+        ===================================================================
+        🚨 비밀번호: 6700
+        🚨 이 웹사이트는 친구 낚시용 / 장난용 데모 사이트입니다!
+        🚨 실제 구글 기프트 카드는 생성되지 않으며 "존재하지 않는 코드" 오류가 뜹니다!
+        ===================================================================
+        */
+
+        const funPASSCODE = "6700";
+        let funCurrentAccountEmail = "user@gmail.com";
+
+        // 국가별 설정 데이터
+        const funCountryConfig = {
+            'KR': { symbol: '₩', name: '대한민국', amounts: [10000, 30000, 50000, 100000] },
+            'US': { symbol: '$', name: '미국', amounts: [10, 25, 50, 100] },
+            'JP': { symbol: '¥', name: '일본', amounts: [1000, 3000, 5000, 10000] },
+            'EU': { symbol: '€', name: '유럽', amounts: [10, 25, 50, 100] }
+        };
+
+        let funSelectedCountry = 'KR';
+        let funSelectedAmount = 10000;
+        let funGeneratedCodeValue = "";
+
+        // 초기화
+        window.onload = function() {
+            funInitPrankConsoleLog();
+            funRenderAmountOptions('KR');
+        };
+
+        /**
+         * 비밀번호 검증 함수 (문지기)
+         */
+        function funVerifyPassword(event) {
+            event.preventDefault();
+            const inputVal = document.getElementById('gate-password-input').value;
+            const errorMsg = document.getElementById('password-error-msg');
+
+            if (inputVal === funPASSCODE) {
+                document.getElementById('password-gate-modal').classList.add('hidden');
+                funShowToastNotification('보안 인증이 완료되었습니다.');
+            } else {
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * 계정 선택 모달 관련
+         */
+        function funOpenAccountSelectorModal() {
+            document.getElementById('custom-account-email').value = "";
+            document.getElementById('account-switch-modal').classList.remove('hidden');
+        }
+
+        function funCloseAccountSelectorModal() {
+            document.getElementById('account-switch-modal').classList.add('hidden');
+        }
+
+        function funSelectPresetAccount(name, email) {
+            funApplyGoogleAccount(email);
+            funCloseAccountSelectorModal();
+        }
+
+        function funSaveCustomAccount() {
+            const inputEmail = document.getElementById('custom-account-email').value.trim();
+            if (inputEmail && inputEmail.includes('@')) {
+                funApplyGoogleAccount(inputEmail);
+                funCloseAccountSelectorModal();
+            } else {
+                alert('올바른 구글 이메일 형식을 입력해 주세요 (예: username@gmail.com)');
+            }
+        }
+
+        function funApplyGoogleAccount(email) {
+            funCurrentAccountEmail = email;
+            const initialChar = email.charAt(0).toUpperCase();
+            
+            document.getElementById('current-user-email-header').innerText = email;
+            document.getElementById('user-avatar-badge').innerText = initialChar;
+            
+            funShowToastNotification(`계정 [${email}]이(가) 선택되었습니다.`);
+        }
+
+        function funCloseAccountSelectorModal() {
+            document.getElementById('account-switch-modal').classList.add('hidden');
+        }
+
+        function funSaveCustomAccount() {
+            const inputEmail = document.getElementById('custom-account-email').value.trim();
+            if (inputEmail && inputEmail.includes('@')) {
+                funCurrentAccountEmail = inputEmail;
+                const initialChar = inputEmail.charAt(0).toUpperCase();
+                
+                document.getElementById('current-user-email-header').innerText = inputEmail;
+                document.getElementById('user-avatar-badge').innerText = initialChar;
+                
+                funCloseAccountSelectorModal();
+                funShowToastNotification('Google 계정이 동기화되었습니다.');
+            } else {
+                alert('올바른 이메일 형식을 입력하세요.');
+            }
+        }
+
+        /**
+         * F12 개발자 도구용 콘솔 로그
+         */
+        function funInitPrankConsoleLog() {
+            console.log("%c🤣 장난용 사이트입니다!", "color: #ea4335; font-size: 24px; font-weight: bold;");
+            console.log("%c[F12 콘솔 확인용] 비밀번호는 6700 이며, '등록' 클릭 시 '존재하지 않는 코드' 팝업이 출력되도록 설정되어 있습니다.", "color: #1a73e8; font-size: 14px;");
+        }
+
+        /**
+         * 선택된 국가에 따라 금액 옵션 동적 생성
+         */
+        function funRenderAmountOptions(countryCode) {
+            const config = funCountryConfig[countryCode];
+            const amountContainer = document.getElementById('amount-grid');
+            amountContainer.innerHTML = '';
+
+            funSelectedAmount = config.amounts[0];
+
+            config.amounts.forEach((amt, index) => {
+                const isFirst = index === 0;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `amount-btn border-2 ${isFirst ? 'border-blue-600 bg-blue-50/50 text-blue-700 font-bold' : 'border-gray-200 text-gray-700 font-medium'} py-3 px-4 rounded-xl text-center hover:bg-blue-50 transition-all duration-200 focus:outline-none text-sm`;
+                
+                const formattedAmt = config.symbol === '₩' ? amt.toLocaleString() + '원' : config.symbol + amt;
+                button.innerText = formattedAmt;
+                button.onclick = function() { funSelectAmount(amt, this, formattedAmt); };
+                
+                amountContainer.appendChild(button);
+            });
+        }
+
+        /**
+         * 드롭다운 변경 이벤트
+         */
+        function funUpdateCountryCurrency(countryCode) {
+            funSelectedCountry = countryCode;
+            funRenderAmountOptions(countryCode);
+        }
+
+        /**
+         * 금액 클릭 이벤트
+         */
+        function funSelectAmount(amount, element, displayString) {
+            funSelectedAmount = amount;
+            
+            const buttons = document.querySelectorAll('.amount-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('border-blue-600', 'bg-blue-50/50', 'text-blue-700', 'font-bold');
+                btn.classList.add('border-gray-200', 'text-gray-700', 'font-medium');
+            });
+
+            element.classList.remove('border-gray-200', 'text-gray-700', 'font-medium');
+            element.classList.add('border-blue-600', 'bg-blue-50/50', 'text-blue-700', 'font-bold');
+        }
+
+        /**
+         * 코드 생성 프로세스
+         */
+        function funStartGenerationProcess() {
+            document.getElementById('selection-section').classList.add('hidden');
+            document.getElementById('result-section').classList.add('hidden');
+            document.getElementById('loading-section').classList.remove('hidden');
+
+            funExecuteLoadingSteps();
+        }
+
+        /**
+         * 생성 단계 로딩 애니메이션
+         */
+        function funExecuteLoadingSteps() {
+            const progressBar = document.getElementById('progress-bar');
+            const statusText = document.getElementById('status-text');
+            const consoleLogs = document.getElementById('console-logs');
+
+            const steps = [
+                { percent: 20, text: "Google 인증 서버 접속 중...", log: "[NET] Connected to auth.play.google.com" },
+                { percent: 45, text: "요청 국가 암호화 세션 연결 중...", log: `[AUTH] Target Country: ${funSelectedCountry}` },
+                { percent: 75, text: "16자리 코드 암호화 생성 중...", log: "[CRYPTO] Generating 16-char token pattern..." },
+                { percent: 100, text: "생성 완료! 결과를 표시합니다.", log: "[SUCCESS] Redeem code generated successfully." }
+            ];
+
+            let stepIndex = 0;
+
+            const interval = setInterval(() => {
+                if (stepIndex < steps.length) {
+                    const currentStep = steps[stepIndex];
+                    progressBar.style.width = currentStep.percent + '%';
+                    statusText.innerText = currentStep.text;
+                    
+                    const logItem = document.createElement('div');
+                    logItem.innerText = currentStep.log;
+                    consoleLogs.appendChild(logItem);
+                    consoleLogs.scrollTop = consoleLogs.scrollHeight;
+
+                    stepIndex++;
+                } else {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        funShowFinalResult();
+                    }, 500);
+                }
+            }, 700);
+        }
+
+        /**
+         * 가짜 코드 문자열 생성
+         */
+        function funGenerateFakeCodeString() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 16; i++) {
+                if (i > 0 && i % 4 === 0) result += '-';
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        /**
+         * 결과 출력
+         */
+        function funShowFinalResult() {
+            const config = funCountryConfig[funSelectedCountry];
+            const displayAmt = config.symbol === '₩' ? funSelectedAmount.toLocaleString() + '원' : config.symbol + funSelectedAmount;
+
+            funGeneratedCodeValue = funGenerateFakeCodeString();
+            document.getElementById('generated-code').innerText = funGeneratedCodeValue;
+            document.getElementById('result-amount').innerText = displayAmt;
+
+            document.getElementById('loading-section').classList.add('hidden');
+            document.getElementById('result-section').classList.remove('hidden');
+        }
+
+        /**
+         * 모달 1: 등록 확인 모달 열기
+         */
+        function funOpenRedeemModal() {
+            const config = funCountryConfig[funSelectedCountry];
+            const displayAmt = config.symbol === '₩' ? funSelectedAmount.toLocaleString() + '원' : config.symbol + funSelectedAmount;
+
+            document.getElementById('modal-user-email-display').innerText = funCurrentAccountEmail;
+            document.getElementById('modal-user-avatar').innerText = funCurrentAccountEmail.charAt(0).toUpperCase();
+            document.getElementById('modal-amount-display').innerText = displayAmt;
+            document.getElementById('modal-code-display').innerText = funGeneratedCodeValue;
+            document.getElementById('redeem-confirm-modal').classList.remove('hidden');
+        }
+
+        /**
+         * 모달 1 닫기 (아니오 클릭 시)
+         */
+        function funCloseRedeemModal() {
+            document.getElementById('redeem-confirm-modal').classList.add('hidden');
+        }
+
+        /**
+         * '네' 버튼 클릭 시 오류 모달(모달 2) 출력
+         */
+        function funConfirmRedeemProcess() {
+            funCloseRedeemModal();
+            setTimeout(() => {
+                document.getElementById('redeem-error-modal').classList.remove('hidden');
+            }, 200);
+        }
+
+        /**
+         * 모달 2 닫기
+         */
+        function funCloseErrorModal() {
+            document.getElementById('redeem-error-modal').classList.add('hidden');
+        }
+
+        /**
+         * 클립보드 복사
+         */
+        function funCopyGeneratedCode() {
+            const tempInput = document.createElement('input');
+            tempInput.value = funGeneratedCodeValue;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            
+            try {
+                document.execCommand('copy');
+                funShowToastNotification('코드가 클립보드에 복사되었습니다!');
+            } catch (err) {
+                funShowToastNotification('복사 실패! 직접 선택해서 복사해 주세요.');
+            }
+            
+            document.body.removeChild(tempInput);
+        }
+
+        /**
+         * 토스트 알림
+         */
+        function funShowToastNotification(message) {
+            const toast = document.getElementById('toast-message');
+            document.getElementById('toast-text').innerText = message;
+            
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            toast.classList.add('opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 2500);
+        }
+
+        /**
+         * 전체 초기화
+         */
+        function funResetGenerator() {
+            document.getElementById('console-logs').innerHTML = '<div>[SYSTEM] 프로세스 시작됨...</div>';
+            document.getElementById('progress-bar').style.width = '0%';
+            document.getElementById('result-section').classList.add('hidden');
+            document.getElementById('selection-section').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
